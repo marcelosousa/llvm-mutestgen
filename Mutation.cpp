@@ -37,32 +37,36 @@ namespace {
       std::string filename = "<unknown>";
       unsigned int lineno  = 0;
       
-      errs() << "In function: ";
+      errs() << "In function ";
       errs().write_escaped(F.getName());
-      errs() << "we called:\n";
+      errs() << " we called:\n";
       for (Function::iterator FI = F.begin(), FE = F.end(); FI != FE; ++FI) {
          BasicBlock &BB = *FI;
          for (BasicBlock::iterator BI = BB.begin(), BE = BB.end(); BI != BE; ++BI) {
            if (isa<CallInst>(BI) || isa<InvokeInst>(BI)) {
-             Instruction *I = BI;
-             CallSite CS = CallSite(I);
-             CallInst *CI = dyn_cast<CallInst>(I);
-             if (MDNode *Dbg = CI->getMetadata(dbgKind)) {
-               DILocation Loc (Dbg);
-               filename = Loc.getDirectory().str() + "/" + Loc.getFilename().str();
-               lineno   = Loc.getLineNumber();
-               errs() << "File: " << filename << "\n";
-               errs() << "Lineno: " << lineno << "\n";
-             }
+//             Instruction *I = BI;
+             CallSite CS = CallSite(BI);
              Value *V = CS.getCalledValue();
-             ++PthreadCallsCounter;
-             errs().write_escaped(V->getName());
-             if(V->hasOneUse()){
+             std::string callee = V->getName().str();
+             
+             if(callee.compare(0,7,"pthread") == 0){
+                ++PthreadCallsCounter;
+                errs().write_escaped(callee) << "\n";
+             
+                if (MDNode *Dbg = CS->getMetadata(dbgKind)) {
+                  DILocation Loc (Dbg);
+                  filename = Loc.getDirectory().str() + "/" + Loc.getFilename().str();
+                  lineno   = Loc.getLineNumber();
+                  errs() << "File: " << filename << "\n";
+                  errs() << "Lineno: " << lineno << "\n";
+                }
+             }
+/*             if(V->hasOneUse()){
                 errs() << " has one use\n";
              }else{
                 errs() << " has multiple uses\n";
             }
-             
+*/             
           }
        }
       }
