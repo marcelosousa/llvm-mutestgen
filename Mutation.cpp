@@ -20,11 +20,12 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/CallSite.h"
+#include "llvm/Analysis/DebugInfo.h"
 
 using namespace llvm;
 
 STATISTIC(PthreadCallsCounter, "Counts number of pthread functions called");
-
+  
 namespace {
   // Hello - The first implementation, without getAnalysisUsage.
   struct Mutation : public FunctionPass {
@@ -32,6 +33,10 @@ namespace {
     Mutation() : FunctionPass(ID) {}
 
     virtual bool runOnFunction(Function &F) {
+      unsigned dbgKind = F.getContext().getMDKindID("dbg");
+      std::string filename = "<unknown>";
+      unsigned int lineno  = 0;
+      
       errs() << "In function: ";
       errs().write_escaped(F.getName());
       errs() << "we called:\n";
@@ -41,6 +46,14 @@ namespace {
            if (isa<CallInst>(BI) || isa<InvokeInst>(BI)) {
              Instruction *I = BI;
              CallSite CS = CallSite(I);
+             CallInst *CI = dyn_cast<CallInst>(I);
+             if (MDNode *Dbg = CI->getMetadata(dbgKind)) {
+               DILocation Loc (Dbg);
+               filename = Loc.getDirectory().str() + "/" + Loc.getFilename().str();
+               lineno   = Loc.getLineNumber();
+               errs() << "File: " << filename << "\n";
+               errs() << "Lineno: " << lineno << "\n";
+             }
              Value *V = CS.getCalledValue();
              ++PthreadCallsCounter;
              errs().write_escaped(V->getName());
