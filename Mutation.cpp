@@ -1,4 +1,4 @@
-//===- Hello.cpp - Example code from "Writing an LLVM Pass" ---------------===//
+//===- Mutation.cpp - Online Mutation Analysis for LLVM ------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,8 +7,6 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements two versions of the LLVM "Hello World" pass described
-// in docs/WritingAnLLVMPass.html
 //
 //===----------------------------------------------------------------------===//
 
