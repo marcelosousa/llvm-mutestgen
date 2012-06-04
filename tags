@@ -1,0 +1,27 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.9~svn20110310	//
+COUNT_DONE	tests/sync.c	11;"	d	file:
+COUNT_HALT1	tests/sync.c	12;"	d	file:
+COUNT_HALT2	tests/sync.c	13;"	d	file:
+DEBUG_TYPE	Mutation.cpp	13;"	d	file:
+EXPORTED_SYMBOL_FILE	Makefile	/^EXPORTED_SYMBOL_FILE = $(PROJ_SRC_DIR)\/Mutation.exports$/;"	m
+ID	Mutation.cpp	/^    static char ID; \/\/ Pass identification, replacement for typeid$/;"	m	struct:__anon1::Mutation	file:
+ID	Mutation.cpp	/^char Mutation::ID = 0;$/;"	m	class:Mutation	file:
+LEVEL	Makefile	/^LEVEL = ..\/..\/..$/;"	m
+LIBRARYNAME	Makefile	/^LIBRARYNAME = LLVMMutation$/;"	m
+LOADABLE_MODULE	Makefile	/^LOADABLE_MODULE = 1$/;"	m
+Mutation	Mutation.cpp	/^    Mutation() : FunctionPass(ID) {}$/;"	f	struct:__anon1::Mutation
+Mutation	Mutation.cpp	/^  struct Mutation : public FunctionPass {$/;"	s	namespace:__anon1	file:
+USEDLIBS	Makefile	/^USEDLIBS =$/;"	m
+condition_var	tests/sync.c	/^pthread_cond_t  condition_var   = PTHREAD_COND_INITIALIZER;$/;"	v
+count	tests/sync.c	/^int  count = 0;$/;"	v
+count_mutex	tests/sync.c	/^pthread_mutex_t count_mutex     = PTHREAD_MUTEX_INITIALIZER;$/;"	v
+functionCount1	tests/sync.c	/^void *functionCount1()$/;"	f
+functionCount2	tests/sync.c	/^void *functionCount2()$/;"	f
+getAnalysisUsage	Mutation.cpp	/^    virtual void getAnalysisUsage(AnalysisUsage &AU) const {$/;"	f	struct:__anon1::Mutation
+main	tests/sync.c	/^main()$/;"	f
+runOnFunction	Mutation.cpp	/^    virtual bool runOnFunction(Function &F) {$/;"	f	struct:__anon1::Mutation
