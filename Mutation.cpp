@@ -28,6 +28,9 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Attributes.h"
 
+#include <iostream>
+#include <fstream>
+
 using namespace llvm;
 
 STATISTIC(PthreadCallsCounter, "Counts number of pthread functions called");
@@ -99,7 +102,14 @@ namespace {
       }
       return false;
     }
-
+    
+    virtual bool doFinalization(Module &M){
+       std::ofstream ofile;
+       ofile.open ("stats.log");
+       ofile << PthreadCallsCounter;
+       ofile.close();
+          return true;
+    }
 /*    
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.setPreservesAll();
