@@ -3,10 +3,10 @@
 use File::Basename;
 
 # Compilers
-my $cpath = "~/Documents/thesis/code";
+my $cpath = $ARGV[0]; # "~/Documents/thesis/code";
  
 # c File we want to mutate
-my $cfile   = $ARGV[0];
+my $cfile   = $ARGV[1];
 my $cbfile  = basename($cfile, ".c");
 my $cbcfile = $cbfile . ".bc";
 
@@ -14,12 +14,12 @@ my $cbcfile = $cbfile . ".bc";
 my $cmbcfile = "mut" . $cbfile . ".bc";
 
 # mutation library
-my $ovcfile = $ARGV[1];
+my $ovcfile = $ARGV[2];
 my $ovbfile  = basename($ovcfile, ".c");
 my $ovbcfile = $ovbfile . ".bc";
 
 # combined file
-my $mbfile = $ARGV[2];
+my $mbfile = $ARGV[3];
 my $mbcfile = $mbfile . ".bc";
 my $masfile = $mbfile . ".s";
 
