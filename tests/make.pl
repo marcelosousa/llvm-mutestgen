@@ -25,10 +25,10 @@ my $masfile = $mbfile . ".s";
 
 # Compile to bc
 print "Compiling mutation library\n";
-system("$cpath/clang+llvm-3.1-x86_64-apple-darwin11/bin/clang -c $ovcfile -pthread -emit-llvm -o $ovbcfile");
+system("$cpath/clang/bin/clang -c $ovcfile -pthread -emit-llvm -o $ovbcfile");
 
 print "Compiling test case\n";
-system("$cpath/clang+llvm-3.1-x86_64-apple-darwin11/bin/clang -c $cfile -pthread -emit-llvm -o $cbcfile");
+system("$cpath/clang/bin/clang -c $cfile -pthread -emit-llvm -o $cbcfile");
 
 print "Generating instrumented bytecode\n";
 system("$cpath/llvm/build/bin/opt -load $cpath/llvm/build/lib/LLVMMutation.dylib -mutation < $cbcfile > $cmbcfile");
@@ -40,6 +40,6 @@ print "Generating Assembly\n";
 system("$cpath/llvm/build/bin/llc $mbcfile -o $masfile");
 
 print "Generating Executable\n";
-system("$cpath/clang+llvm-3.1-x86_64-apple-darwin11/bin/clang $masfile -o $mbfile");
+system("$cpath/clang/bin/clang $masfile -o $mbfile");
 
 print "Finished\n";
