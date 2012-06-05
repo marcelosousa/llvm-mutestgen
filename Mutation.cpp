@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #define DEBUG_TYPE "mutation"
-#include "llvm/Support/CallSite.h"
+
 #include "llvm/Constants.h"
 #include "llvm/Instruction.h"
 #include "llvm/Instructions.h"
@@ -20,13 +20,16 @@
 #include "llvm/Function.h"
 #include "llvm/DerivedTypes.h"
 #include "llvm/Module.h"
+#include "llvm/Attributes.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/IRBuilder.h"
-#include "llvm/ADT/Statistic.h"
 #include "llvm/Support/CallSite.h"
+#include "llvm/Support/CFG.h"
 #include "llvm/Analysis/DebugInfo.h"
+#include "llvm/Analysis/Trace.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/Attributes.h"
+#include "llvm/ADT/Statistic.h"
+#include "llvm/Assembly/Writer.h"
 
 #include <iostream>
 #include <fstream>
@@ -43,10 +46,10 @@ namespace {
     Mutation() : FunctionPass(ID) {}
 
     virtual bool runOnFunction(Function &F) {
-      unsigned dbgKind = F.getContext().getMDKindID("dbg");
-      std::string filename = "<unknown>";
-      unsigned int lineno  = 0;
-      unsigned int numop   = 0;
+      //unsigned dbgKind = F.getContext().getMDKindID("dbg");
+      //std::string filename = "<unknown>";
+      //unsigned int lineno  = 0;
+      //unsigned int numop   = 0;
       
       errs() << "In function ";
       errs().write_escaped(F.getName());
@@ -60,8 +63,6 @@ namespace {
              Value *V = CS.getCalledValue();
              std::string callee = V->getName().str();
              if(callee.compare(0,18,"pthread_mutex_lock") == 0){
-             //   Instruction *I = BI;
-
                 IRBuilder<> IRB(I);                
                 
                 ++PthreadCallsCounter;
@@ -84,7 +85,7 @@ namespace {
                   FunctionType *NFPTy = FunctionType::get(FP->getReturnType(), AParams, FPTy->isVarArg());
                   AttrListPtr PAL = FP->getAttributes().addAttr(Params.size(), Attributes(Attribute::InReg));                  
                   
-                  IRBuilder<> IRBB(F.getParent()->getContext());                  
+//                  IRBuilder<> IRBB(F.getParent()->getContext());                  
                   Value *FPthread = F.getParent()->getOrInsertFunction("pthread_mutex_lock_ov", NFPTy, PAL);
 //                  Value *FPthread = F.getParent()->getOrInsertFunction("pthread_mutex_lock_ov", FP->getFunctionType(), FP->getAttributes());
                   
@@ -93,6 +94,20 @@ namespace {
                                 
                   CallInst *New = CallInst::Create(FPthread,  ArrayRef<Value*>(Args), "", BI);
                   I->eraseFromParent();
+                  
+                  //F.viewCFG(); // View the cfg
+                  Value *VBB = dyn_cast<Value>(&BB);
+                  WriteAsOperand(errs() , VBB, true, F.getParent());
+                  errs() << "\n";
+                    
+                  for (pred_iterator PI = pred_begin(&BB), E = pred_end(&BB); PI != E; ++PI) {
+                    BasicBlock *Pred = *PI;
+                    Value *VPred = dyn_cast<Value>(&*Pred);
+                    
+                    
+                    WriteAsOperand(errs() , VPred, true, Pred->getParent()->getParent());
+                    errs() << "\n";
+                  }
                   //CallInst *CI = IRB.CreateCall(FPthread, ArrayRef<Value*>(Args));                  
                   
 //               }
