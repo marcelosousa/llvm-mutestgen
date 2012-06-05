@@ -31,7 +31,7 @@ print "Compiling test case\n";
 system("$cpath/clang+llvm-3.1-x86_64-apple-darwin11/bin/clang -c $cfile -pthread -emit-llvm -o $cbcfile");
 
 print "Generating instrumented bytecode\n";
-system("$cpath/llvm/build/bin/opt -load ~/Documents/thesis/code/llvm/build/lib/LLVMMutation.dylib -mutation < $cbcfile > $cmbcfile");
+system("$cpath/llvm/build/bin/opt -load $cpath/llvm/build/lib/LLVMMutation.dylib -mutation < $cbcfile > $cmbcfile");
 
 print "Linking bytecode files\n";
 system("$cpath/llvm/build/bin/llvm-link $ovbcfile $cmbcfile -o $mbcfile");
