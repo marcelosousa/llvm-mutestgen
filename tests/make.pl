@@ -2,6 +2,9 @@
 
 use File::Basename;
 
+# Compilers
+my $cpath = "~/Documents/thesis/code";
+ 
 # c File we want to mutate
 my $cfile   = $ARGV[0];
 my $cbfile  = basename($cfile, ".c");
@@ -22,21 +25,21 @@ my $masfile = $mbfile . ".s";
 
 # Compile to bc
 print "Compiling mutation library\n";
-system("~/Documents/thesis/code/clang+llvm-3.1-x86_64-apple-darwin11/bin/clang -c $ovcfile -pthread -emit-llvm -o $ovbcfile");
+system("$cpath/clang+llvm-3.1-x86_64-apple-darwin11/bin/clang -c $ovcfile -pthread -emit-llvm -o $ovbcfile");
 
 print "Compiling test case\n";
-system("~/Documents/thesis/code/clang+llvm-3.1-x86_64-apple-darwin11/bin/clang -c $cfile -pthread -emit-llvm -o $cbcfile");
+system("$cpath/clang+llvm-3.1-x86_64-apple-darwin11/bin/clang -c $cfile -pthread -emit-llvm -o $cbcfile");
 
 print "Generating instrumented bytecode\n";
-system("~/Documents/thesis/code/llvm/build/bin/opt -load ~/Documents/thesis/code/llvm/build/lib/LLVMMutation.dylib -mutation < $cbcfile > $cmbcfile");
+system("$cpath/llvm/build/bin/opt -load ~/Documents/thesis/code/llvm/build/lib/LLVMMutation.dylib -mutation < $cbcfile > $cmbcfile");
 
 print "Linking bytecode files\n";
-system("~/Documents/thesis/code/llvm/build/bin/llvm-link $ovbcfile $cmbcfile -o $mbcfile");
+system("$cpath/llvm/build/bin/llvm-link $ovbcfile $cmbcfile -o $mbcfile");
 
 print "Generating Assembly\n";
-system("~/Documents/thesis/code/llvm/build/bin/llc $mbcfile -o $masfile");
+system("$cpath/llvm/build/bin/llc $mbcfile -o $masfile");
 
 print "Generating Executable\n";
-system("~/Documents/thesis/code/clang+llvm-3.1-x86_64-apple-darwin11/bin/clang $masfile -o $mbfile");
+system("$cpath/clang+llvm-3.1-x86_64-apple-darwin11/bin/clang $masfile -o $mbfile");
 
 print "Finished\n";
