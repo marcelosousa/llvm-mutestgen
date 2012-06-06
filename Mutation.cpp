@@ -30,6 +30,7 @@
 #include "llvm/Analysis/Trace.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/ADT/StringMap.h"
 #include "llvm/Assembly/Writer.h"
 
 #include <iostream>
@@ -41,12 +42,15 @@ STATISTIC(MutationCounter, "Counts the number of mutated functions");
 
 namespace {
   struct Mutation : public FunctionPass {
+    std::multimap<std::string, CallInst*> PThreadCreateCallMap;
+    
     static char ID; // Pass identification, replacement for typeid
     Mutation() : FunctionPass(ID) {}
 
     virtual bool runOnFunction(Function &F) {
+      std::string fname = F.getName().str();
       errs() << "In function ";
-      errs().write_escaped(F.getName());
+      errs().write_escaped(fname);
       errs() << " we called:\n";
 
       for (Function::iterator FI = F.begin(), FE = F.end(); FI != FE; ++FI) {
@@ -79,8 +83,9 @@ namespace {
                   FunctionType *NFPTy = FunctionType::get(FP->getReturnType(), AParams, FPTy->isVarArg());
                   // Create a new attribute list 
                   AttrListPtr PAL = FP->getAttributes().addAttr(Params.size(), Attributes(Attribute::InReg));                  
-                  
+                                    
                   // Create a new function and add it to the module
+                  std::string scallee = std::string(callee);
                   std::string ncallee = callee.append("_ov");
                   Value *FPthread = F.getParent()->getOrInsertFunction(ncallee.data(), NFPTy, PAL);
                   
@@ -90,10 +95,21 @@ namespace {
                   Args.push_back(MutVal);
                   
                   // Add the new call instruction to the basic block
-                  CallInst::Create(FPthread,  ArrayRef<Value*>(Args), "", BI);
-
+                  CallInst *NCI = CallInst::Create(FPthread,  ArrayRef<Value*>(Args), "", BI);
+                  
+                  // In case of a pthread_create we add to our multimap
+                  if(scallee.compare("pthread_create") == 0){
+                     errs() << "pthread_create calls ";
+                     User *idf = dyn_cast<User>(CS.getArgument(2));
+                     Value *ff = idf->getOperand(0);
+                     std::string ptcreate_callee = ff->getName().str();
+                     errs().write_escaped(ptcreate_callee) << "\n";
+                     PThreadCreateCallMap.insert(std::pair<std::string, CallInst*>(ptcreate_callee,NCI));
+                  }
+                  
                   // Remove the original pthread function call
                   I->eraseFromParent();
+                  
                   
                   //F.viewCFG(); // View the cfg
 //                  Value *VBB = dyn_cast<Value>(&BB);
@@ -155,6 +171,10 @@ namespace {
       return false;
     }
     
+    virtual bool doInitialization(Module &M){
+       return true;
+    }
+    
     virtual bool doFinalization(Module &M){
        std::ofstream ofile;
        
@@ -162,6 +182,10 @@ namespace {
        ofile << MutationCounter;
        ofile.close();
        
+       errs() << "Dumping our pthread_create multimap\n";
+       for (std::multimap<std::string,CallInst*>::iterator it=PThreadCreateCallMap.begin() ; it != PThreadCreateCallMap.end(); it++ )
+          errs() << (*it).first << " => " << (*it).second << "\n";
+         
        return true;
     }
 /*    
@@ -170,13 +194,13 @@ namespace {
     }
 */
    bool isPThreadCall(std::string callee){
-      const int ptfnum = 77;
+      const int ptfnum = 75;
       std::string ptfnames[ptfnum] = {"pthread_attr_destroy","pthread_attr_getdetachstate","pthread_attr_getguardsize",
       "pthread_attr_getinheritsched","pthread_attr_getschedparam","pthread_attr_getschedpolicy","pthread_attr_getscope",
       "pthread_attr_getstackaddr","pthread_attr_getstacksize","pthread_attr_init","pthread_attr_setdetachstate",
       "pthread_attr_setguardsize","pthread_attr_setinheritsched","pthread_attr_setschedparam","pthread_attr_setschedpolicy",
-      "pthread_attr_setscope","pthread_attr_setstackaddr","pthread_attr_setstacksize","pthread_cancel","pthread_cleanup_push",
-      "pthread_cleanup_pop","pthread_cond_broadcast","pthread_cond_destroy","pthread_cond_init","pthread_cond_signal",
+      "pthread_attr_setscope","pthread_attr_setstackaddr","pthread_attr_setstacksize","pthread_cancel",
+      "pthread_cond_broadcast","pthread_cond_destroy","pthread_cond_init","pthread_cond_signal",
       "pthread_cond_timedwait","pthread_cond_wait","pthread_condattr_destroy","pthread_condattr_getpshared","pthread_condattr_init",
       "pthread_condattr_setpshared","pthread_create","pthread_detach","pthread_equal","pthread_exit","pthread_getconcurrency",
       "pthread_getschedparam","pthread_getspecific","pthread_join","pthread_key_create","pthread_key_delete","pthread_mutex_destroy",
