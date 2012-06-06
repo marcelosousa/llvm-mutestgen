@@ -15,7 +15,9 @@ int  count = 0;
 main()
 {
    pthread_t thread1, thread2;
-
+   
+   //functionCount1();
+   
    pthread_create( &thread1, NULL, &functionCount1, NULL);
    pthread_create( &thread2, NULL, &functionCount2, NULL);
 

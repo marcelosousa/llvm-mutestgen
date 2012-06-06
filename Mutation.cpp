@@ -13,6 +13,7 @@
 #define DEBUG_TYPE "mutation"
 
 #include "llvm/Constants.h"
+#include "llvm/Operator.h"
 #include "llvm/Instruction.h"
 #include "llvm/Instructions.h"
 #include "llvm/Pass.h"
@@ -92,7 +93,8 @@ namespace {
                   std::vector<Value*> Args(CS.arg_begin(), CS.arg_end());
                   Args.push_back(LineNumber);
                                 
-                  CallInst *New = CallInst::Create(FPthread,  ArrayRef<Value*>(Args), "", BI);
+//                  CallInst *New = CallInst::Create(FPthread,  ArrayRef<Value*>(Args), "", BI);
+                  CallInst::Create(FPthread,  ArrayRef<Value*>(Args), "", BI);
                   I->eraseFromParent();
                   
                   //F.viewCFG(); // View the cfg
@@ -104,9 +106,48 @@ namespace {
                     BasicBlock *Pred = *PI;
                     Value *VPred = dyn_cast<Value>(&*Pred);
                     
-                    
                     WriteAsOperand(errs() , VPred, true, Pred->getParent()->getParent());
                     errs() << "\n";
+                  }
+                  
+                  Value *VF = dyn_cast<Value>(&F);
+                  errs() << "# uses = " << VF->getNumUses() << "\n";
+                  errs() << "type = " << VF->getType() << "\n";
+
+                  if(F.hasAddressTaken()){
+                     errs() << "There are indirect uses\n";
+                  }
+                  
+                  for (Value::use_iterator i = F.use_begin(), e = F.use_end(); i != e; ++i){                     
+                     //i->dump();
+                     //i->getType()->dump();
+                     errs() << "\n";
+                     if(Instruction *Inst = dyn_cast<Instruction>(*i)){
+                      errs() << "F is used in instruction:\n";
+                      errs() << *Inst << "\n";
+                     }
+//                     if(User *U = dyn_cast<User>(*i)){
+//                        if(isa<Constant>(U)){
+//                           errs() << "It's a constant\n";
+//                        }
+//                        if(isa<Instruction>(U)){
+//                           errs() << "It's an instruction\n";
+//                        }
+//                        if(isa<Operator>(U)){
+//                           errs() << "It's an operator\n";
+//                           Operator *Oper = dyn_cast<Operator>(U);
+//                        }
+//                        errs() << "User " << U->getNumOperands() << "\n";
+//                        Value *BOp = U->getOperand(0);
+//                        BOp->dump();
+//                        if (isa<Function>(BOp)) {
+//                           errs() << "Is a function\n";
+//                        }
+//                        if(Instruction *Inst = dyn_cast<Instruction>(BOp)){
+//                           errs() << "F is used in instruction: " << *Inst << "\n";
+//                        }
+//                     }
+                     
                   }
                   //CallInst *CI = IRB.CreateCall(FPthread, ArrayRef<Value*>(Args));                  
                   
