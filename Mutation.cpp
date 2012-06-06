@@ -37,95 +37,93 @@
 
 using namespace llvm;
 
-STATISTIC(PthreadCallsCounter, "Counts number of pthread functions called");
+STATISTIC(MutationCounter, "Counts the number of mutated functions");
 
 namespace {
-  // Hello - The first implementation, without getAnalysisUsage.
   struct Mutation : public FunctionPass {
-    Value * FPthread;
     static char ID; // Pass identification, replacement for typeid
     Mutation() : FunctionPass(ID) {}
 
     virtual bool runOnFunction(Function &F) {
-      //unsigned dbgKind = F.getContext().getMDKindID("dbg");
-      //std::string filename = "<unknown>";
-      //unsigned int lineno  = 0;
-      //unsigned int numop   = 0;
-      
       errs() << "In function ";
       errs().write_escaped(F.getName());
       errs() << " we called:\n";
+
       for (Function::iterator FI = F.begin(), FE = F.end(); FI != FE; ++FI) {
          BasicBlock &BB = *FI;
          for (BasicBlock::iterator BI = BB.begin(), BE = BB.end(); BI != BE;) {
-           Instruction *I = BI++;
-           if (isa<CallInst>(I) || isa<InvokeInst>(I)) {
-             CallSite CS = CallSite(I);
-             Value *V = CS.getCalledValue();
-             std::string callee = V->getName().str();
-             if(callee.compare(0,18,"pthread_mutex_lock") == 0){
-                IRBuilder<> IRB(I);                
-                
-                ++PthreadCallsCounter;
-                errs().write_escaped(callee) << "\n";
+            Instruction *I = BI++;
+            if (isa<CallInst>(I) || isa<InvokeInst>(I)) {
+               // In case of a Call or Invoke get the called function
+               CallSite CS = CallSite(I);
+               Value *CFV = CS.getCalledValue();
+               std::string callee = CFV->getName().str();
              
-/*                if (MDNode *Dbg = CS->getMetadata(dbgKind)) {
-                  DILocation Loc (Dbg);
-                  filename = Loc.getDirectory().str() + "/" + Loc.getFilename().str();
-                  lineno   = Loc.getLineNumber();
-                  errs() << "File: " << filename << " Lineno: " << lineno << "\n"; */
-                  Value * LineNumber = ConstantInt::get (IntegerType::get (F.getContext(),32), PthreadCallsCounter);
+               if(isPThreadCall(callee)){
+                  // In case of a pthread function we mutate
+                  errs().write_escaped(callee) << "\n";
                   
-                  Function *FP = cast<Function>(V);
+                  IRBuilder<> IRB(I);                                
+                  ++MutationCounter;
+
+                  // Build a new function with an extra int argument
+                  Function *FP = cast<Function>(CFV);
+                  // Get the type of function
                   FunctionType *FPTy = FP->getFunctionType();
+                  // Create a new array of params with all the old params and an extra int
                   std::vector<Type*> Params(FPTy->param_begin(), FPTy->param_end());
                   Params.push_back(IntegerType::get (F.getContext(),32));
-                  
                   ArrayRef<Type*> AParams = ArrayRef<Type*>(Params);
                   
+                  // Create the new function type for the overloaded function
                   FunctionType *NFPTy = FunctionType::get(FP->getReturnType(), AParams, FPTy->isVarArg());
+                  // Create a new attribute list 
                   AttrListPtr PAL = FP->getAttributes().addAttr(Params.size(), Attributes(Attribute::InReg));                  
                   
-//                  IRBuilder<> IRBB(F.getParent()->getContext());                  
-                  Value *FPthread = F.getParent()->getOrInsertFunction("pthread_mutex_lock_ov", NFPTy, PAL);
-//                  Value *FPthread = F.getParent()->getOrInsertFunction("pthread_mutex_lock_ov", FP->getFunctionType(), FP->getAttributes());
+                  // Create a new function and add it to the module
+                  std::string ncallee = callee.append("_ov");
+                  Value *FPthread = F.getParent()->getOrInsertFunction(ncallee.data(), NFPTy, PAL);
                   
+                  // Create the arguments for the new call
                   std::vector<Value*> Args(CS.arg_begin(), CS.arg_end());
-                  Args.push_back(LineNumber);
-                                
-//                  CallInst *New = CallInst::Create(FPthread,  ArrayRef<Value*>(Args), "", BI);
+                  Value * MutVal = ConstantInt::get (IntegerType::get (F.getContext(),32), MutationCounter);
+                  Args.push_back(MutVal);
+                  
+                  // Add the new call instruction to the basic block
                   CallInst::Create(FPthread,  ArrayRef<Value*>(Args), "", BI);
+
+                  // Remove the original pthread function call
                   I->eraseFromParent();
                   
                   //F.viewCFG(); // View the cfg
-                  Value *VBB = dyn_cast<Value>(&BB);
-                  WriteAsOperand(errs() , VBB, true, F.getParent());
-                  errs() << "\n";
-                    
-                  for (pred_iterator PI = pred_begin(&BB), E = pred_end(&BB); PI != E; ++PI) {
-                    BasicBlock *Pred = *PI;
-                    Value *VPred = dyn_cast<Value>(&*Pred);
-                    
-                    WriteAsOperand(errs() , VPred, true, Pred->getParent()->getParent());
-                    errs() << "\n";
-                  }
-                  
-                  Value *VF = dyn_cast<Value>(&F);
-                  errs() << "# uses = " << VF->getNumUses() << "\n";
-                  errs() << "type = " << VF->getType() << "\n";
-
-                  if(F.hasAddressTaken()){
-                     errs() << "There are indirect uses\n";
-                  }
-                  
-                  for (Value::use_iterator i = F.use_begin(), e = F.use_end(); i != e; ++i){                     
-                     //i->dump();
-                     //i->getType()->dump();
-                     errs() << "\n";
-                     if(Instruction *Inst = dyn_cast<Instruction>(*i)){
-                      errs() << "F is used in instruction:\n";
-                      errs() << *Inst << "\n";
-                     }
+//                  Value *VBB = dyn_cast<Value>(&BB);
+//                  WriteAsOperand(errs() , VBB, true, F.getParent());
+//                  errs() << "\n";
+//                    
+//                  for (pred_iterator PI = pred_begin(&BB), E = pred_end(&BB); PI != E; ++PI) {
+//                    BasicBlock *Pred = *PI;
+//                    Value *VPred = dyn_cast<Value>(&*Pred);
+//                    
+//                    WriteAsOperand(errs() , VPred, true, Pred->getParent()->getParent());
+//                    errs() << "\n";
+//                  }
+//                  
+//                  Value *VF = dyn_cast<Value>(&F);
+//                  errs() << "# uses = " << VF->getNumUses() << "\n";
+//                  errs() << "type = " << VF->getType() << "\n";
+//
+//                  if(F.hasAddressTaken()){
+//                     errs() << "There are indirect uses\n";
+//                  }
+//                  
+//                  for (Value::use_iterator i = F.use_begin(), e = F.use_end(); i != e; ++i){                     
+//                     //i->dump();
+//                     //i->getType()->dump();
+//                     errs() << "\n";
+//                     if(Instruction *Inst = dyn_cast<Instruction>(*i)){
+//                      errs() << "F is used in instruction:\n";
+//                      errs() << *Inst << "\n";
+//                     }
 //                     if(User *U = dyn_cast<User>(*i)){
 //                        if(isa<Constant>(U)){
 //                           errs() << "It's a constant\n";
@@ -146,11 +144,9 @@ namespace {
 //                        if(Instruction *Inst = dyn_cast<Instruction>(BOp)){
 //                           errs() << "F is used in instruction: " << *Inst << "\n";
 //                        }
-//                     }
-                     
-                  }
-                  //CallInst *CI = IRB.CreateCall(FPthread, ArrayRef<Value*>(Args));                  
-                  
+//                     }                   
+//                  }
+                  //CallInst *CI = IRB.CreateCall(FPthread, ArrayRef<Value*>(Args));                                
 //               }
              }  
           }
@@ -161,16 +157,29 @@ namespace {
     
     virtual bool doFinalization(Module &M){
        std::ofstream ofile;
+       
        ofile.open ("stats.log");
-       ofile << PthreadCallsCounter;
+       ofile << MutationCounter;
        ofile.close();
-          return true;
+       
+       return true;
     }
 /*    
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.setPreservesAll();
     }
 */
+   bool isPThreadCall(std::string callee){
+      const int ptfnum = 3;
+      std::string ptfnames[ptfnum] = {"pthread_mutex_lock", "pthread_cond_wait", "pthread_create"};
+       
+      for(int i = 0; i < ptfnum; i++){
+         if(callee.compare(ptfnames[i]) == 0){
+            return true;
+         }
+      }
+      return false;
+   }
   };
 }
 
