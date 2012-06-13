@@ -31,6 +31,7 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/StringMap.h"
+#include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/Assembly/Writer.h"
 
 #include <iostream>
@@ -48,6 +49,9 @@ namespace {
     Mutation() : FunctionPass(ID) {}
 
     virtual bool runOnFunction(Function &F) {
+      typedef SmallPtrSet<const Value*, 16> SmallValueSet;
+      SmallValueSet DFSet;
+      
       std::string fname = F.getName().str();
       errs() << "In function ";
       errs().write_escaped(fname);
@@ -107,66 +111,37 @@ namespace {
                      PThreadCreateCallMap.insert(std::pair<std::string, CallInst*>(ptcreate_callee,NCI));
                   }
                   
-                  // Remove the original pthread function call
-                  I->eraseFromParent();
+                  std::vector<BasicBlock *> Path;
+                  std::vector<BasicBlock *> Visited;
+                  BasicBlock *ebb = (&(BB.getParent()->getEntryBlock()));
+                  Path = findPath(&BB, ebb, Path, Visited);
                   
+                  int psize = (int) Path.size();
+                  if(psize > 0){
+                     errs() << "Found a path to the entry block\n";
+                     errs() << "size: " << psize << "\n";
+                     for(std::vector<BasicBlock *>::iterator it=Path.begin(); it < Path.end(); it++){
+                        BasicBlock *PBB = *it;
+                        ppBasicBlock(PBB);
+                     }
+                  }
                   
                   //F.viewCFG(); // View the cfg
-//                  Value *VBB = dyn_cast<Value>(&BB);
-//                  WriteAsOperand(errs() , VBB, true, F.getParent());
-//                  errs() << "\n";
-//                    
-//                  for (pred_iterator PI = pred_begin(&BB), E = pred_end(&BB); PI != E; ++PI) {
-//                    BasicBlock *Pred = *PI;
-//                    Value *VPred = dyn_cast<Value>(&*Pred);
-//                    
-//                    WriteAsOperand(errs() , VPred, true, Pred->getParent()->getParent());
-//                    errs() << "\n";
-//                  }
-//                  
+
 //                  Value *VF = dyn_cast<Value>(&F);
 //                  errs() << "# uses = " << VF->getNumUses() << "\n";
 //                  errs() << "type = " << VF->getType() << "\n";
 //
 //                  if(F.hasAddressTaken()){
 //                     errs() << "There are indirect uses\n";
-//                  }
-//                  
-//                  for (Value::use_iterator i = F.use_begin(), e = F.use_end(); i != e; ++i){                     
-//                     //i->dump();
-//                     //i->getType()->dump();
-//                     errs() << "\n";
-//                     if(Instruction *Inst = dyn_cast<Instruction>(*i)){
-//                      errs() << "F is used in instruction:\n";
-//                      errs() << *Inst << "\n";
-//                     }
-//                     if(User *U = dyn_cast<User>(*i)){
-//                        if(isa<Constant>(U)){
-//                           errs() << "It's a constant\n";
-//                        }
-//                        if(isa<Instruction>(U)){
-//                           errs() << "It's an instruction\n";
-//                        }
-//                        if(isa<Operator>(U)){
-//                           errs() << "It's an operator\n";
-//                           Operator *Oper = dyn_cast<Operator>(U);
-//                        }
-//                        errs() << "User " << U->getNumOperands() << "\n";
-//                        Value *BOp = U->getOperand(0);
-//                        BOp->dump();
-//                        if (isa<Function>(BOp)) {
-//                           errs() << "Is a function\n";
-//                        }
-//                        if(Instruction *Inst = dyn_cast<Instruction>(BOp)){
-//                           errs() << "F is used in instruction: " << *Inst << "\n";
-//                        }
-//                     }                   
-//                  }
-                  //CallInst *CI = IRB.CreateCall(FPthread, ArrayRef<Value*>(Args));                                
-//               }
-             }  
-          }
-       }
+//                  }                               
+
+                  // Remove the original pthread function call
+                  I->replaceAllUsesWith(NCI);
+                  I->eraseFromParent();
+               }  
+            }
+         }
       }
       return false;
     }
@@ -193,6 +168,63 @@ namespace {
       AU.setPreservesAll();
     }
 */
+   std::vector<BasicBlock *> findPath(BasicBlock* bb, BasicBlock* ebb, std::vector<BasicBlock *> Path, std::vector<BasicBlock *>Visited){
+      // Control Flow Analysis -- Going back from the current instruction
+      // until the first basic block of the function and collect all terminators.
+      
+      // Insert the current element into both vectors
+      Visited.push_back(bb);
+      
+      std::vector<BasicBlock *>ToVisit;
+      
+      // Get the entry block for this function
+      
+      if(bb == ebb){
+         Path.push_back(bb);
+         return Path;
+      }
+      
+      // We first check all the predecessors to see if the entry block is there
+      for (pred_iterator PI = pred_begin(bb), E = pred_end(bb); PI != E; ++PI) {
+         BasicBlock *Pred = *PI;         
+         // If this element is the entry element we stop
+         if(Pred == ebb){
+            Path.push_back(Pred);
+            Path.push_back(bb);
+            return Path;
+         }
+         ToVisit.push_back(Pred);
+      }                       
+      
+      std::vector<BasicBlock *>::iterator it;
+      std::vector<BasicBlock *>::iterator fit;
+
+      for(it=ToVisit.begin(); it < ToVisit.end(); it++){
+         BasicBlock *BB = *it;
+         
+         fit = std::find(Visited.begin(), Visited.end(), BB);
+
+         if(BB == *fit){
+            continue;
+         }
+         
+         std::vector<BasicBlock *>NPath = findPath(BB, ebb, Path, Visited);
+         int npsize = (int) NPath.size();
+         if(npsize > 0){
+            NPath.push_back(bb);
+            return NPath;
+         }
+      }
+      
+      return Path;
+    }
+    
+   void ppBasicBlock(BasicBlock* bb){
+      Value *VBB = dyn_cast<Value>(bb);
+      WriteAsOperand(errs() , VBB, true, bb->getParent()->getParent());
+      errs() << "\n";      
+   }
+
    bool isPThreadCall(std::string callee){
       const int ptfnum = 75;
       std::string ptfnames[ptfnum] = {"pthread_attr_destroy","pthread_attr_getdetachstate","pthread_attr_getguardsize",
