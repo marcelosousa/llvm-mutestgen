@@ -53,10 +53,12 @@ namespace {
       SmallValueSet DFSet;
       
       std::string fname = F.getName().str();
+      errs() << "-----------------------\n";
       errs() << "In function ";
       errs().write_escaped(fname);
       errs() << " we called:\n";
 
+      int x = 1;
       for (Function::iterator FI = F.begin(), FE = F.end(); FI != FE; ++FI) {
          BasicBlock &BB = *FI;
          for (BasicBlock::iterator BI = BB.begin(), BE = BB.end(); BI != BE;) {
@@ -69,6 +71,8 @@ namespace {
              
                if(isPThreadCall(callee)){
                   // In case of a pthread function we mutate
+                  errs() << x << ".";
+                  x++;
                   errs().write_escaped(callee) << "\n";
                   
                   IRBuilder<> IRB(I);                                
@@ -111,6 +115,7 @@ namespace {
                      PThreadCreateCallMap.insert(std::pair<std::string, CallInst*>(ptcreate_callee,NCI));
                   }
                   
+                  //F.viewCFG(); // View the cfg
                   std::vector<BasicBlock *> Path;
                   std::vector<BasicBlock *> Visited;
                   BasicBlock *ebb = (&(BB.getParent()->getEntryBlock()));
@@ -123,11 +128,13 @@ namespace {
                      for(std::vector<BasicBlock *>::iterator it=Path.begin(); it < Path.end(); it++){
                         BasicBlock *PBB = *it;
                         ppBasicBlock(PBB);
+                        if(it < Path.end()-1){
+                           TerminatorInst *tinst = PBB->getTerminator();
+                           processTerminator(tinst);
+                        }
                      }
                   }
                   
-                  //F.viewCFG(); // View the cfg
-
 //                  Value *VF = dyn_cast<Value>(&F);
 //                  errs() << "# uses = " << VF->getNumUses() << "\n";
 //                  errs() << "type = " << VF->getType() << "\n";
@@ -137,7 +144,7 @@ namespace {
 //                  }                               
 
                   // Remove the original pthread function call
-                  I->replaceAllUsesWith(NCI);
+                  I->replaceAllUsesWith(NCI); // This seems a bit strange.
                   I->eraseFromParent();
                }  
             }
@@ -157,6 +164,7 @@ namespace {
        ofile << MutationCounter;
        ofile.close();
        
+       errs() << "-----------------------------------\n";
        errs() << "Dumping our pthread_create multimap\n";
        for (std::multimap<std::string,CallInst*>::iterator it=PThreadCreateCallMap.begin() ; it != PThreadCreateCallMap.end(); it++ )
           errs() << (*it).first << " => " << (*it).second << "\n";
@@ -168,6 +176,70 @@ namespace {
       AU.setPreservesAll();
     }
 */
+
+   void processTerminator(TerminatorInst* I){
+      if(isa<BranchInst>(I)){
+         BranchInst *Br = dyn_cast<BranchInst>(I);
+         
+         if(Br->isUnconditional()){
+            errs() << "br unconditional\n";
+         }
+         
+         if(Br->isConditional()){
+            Value *c = Br->getCondition();
+            //WriteAsOperand(errs() , c, true, I->getParent()->getParent()->getParent());
+            //
+            //for(int i=0; i< (int) Br->getNumSuccessors(); i++){
+            //   BasicBlock *bb = Br->getSuccessor(i);
+            //   Value *VBB = dyn_cast<Value>(bb);
+            //   errs() << " ";
+            //   WriteAsOperand(errs() , VBB, true, bb->getParent()->getParent());
+            //}
+            //
+            //errs() << "\n";
+            
+            // Going back on the uses of that value
+            for (Value::use_iterator i = c->use_begin(), e = c->use_end(); i != e; ++i)
+               if (Instruction *Inst = dyn_cast<Instruction>(*i)) {
+                  //errs() << "c is used in instruction:\n";
+                  errs() << *Inst << "\n";
+               }
+               
+            if(isa<User>(c)){
+               errs() << "Is User\n";
+               User *uc = dyn_cast<User>(c);
+               // Which subclass?
+               if(isa<Constant>(uc)){
+                  errs() << "Is Constant\n";                  
+               }
+               if(isa<Instruction>(uc)){
+                  errs() << "Is Instruction\n";                  
+               }
+               if(isa<Operator>(uc)){
+                  errs() << "Is Operator\n";
+               }
+//               Value *ucv = uc->getOperand(0);
+               for (User::op_iterator o = uc->op_begin(), oe = uc->op_end(); o!=oe; o++){
+                  Value *ucv = o->get();
+                  WriteAsOperand(errs() , ucv, true, I->getParent()->getParent()->getParent());
+                  errs() << "\n";
+                  for (Value::use_iterator i = ucv->use_begin(), e = ucv->use_end(); i != e; ++i)
+                     if (Instruction *Inst = dyn_cast<Instruction>(*i)) {
+                        //errs() << "c is used in instruction:\n";
+                        errs() << *Inst << "\n";
+                     }
+               }
+            }
+         }
+      }else if(isa<SwitchInst>(I)){
+         errs() << "switch\n";         
+      }else if(isa<IndirectBrInst>(I)){
+         errs() << "indirectbr\n";
+      }else{ //(isa<ReturnInst>(I) || isa<UnreachableInst>(I) || isa<ResumeInst>(I) || isa<InvokeInst>(I)){
+         errs() << "Impossible!\n";
+      }
+   }
+   
    std::vector<BasicBlock *> findPath(BasicBlock* bb, BasicBlock* ebb, std::vector<BasicBlock *> Path, std::vector<BasicBlock *>Visited){
       // Control Flow Analysis -- Going back from the current instruction
       // until the first basic block of the function and collect all terminators.
