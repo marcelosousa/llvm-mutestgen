@@ -69,7 +69,7 @@ namespace {
                Value *CFV = CS.getCalledValue();
                std::string callee = CFV->getName().str();
              
-               if(isPThreadCall(callee)){
+               if(isSyncCall(callee)){
                   // In case of a pthread function we mutate
                   errs() << x << ".";
                   x++;
@@ -104,7 +104,7 @@ namespace {
                   
                   // Add the new call instruction to the basic block
                   CallInst *NCI = CallInst::Create(FPthread,  ArrayRef<Value*>(Args), "", BI);
-                  
+/*                  
                   // In case of a pthread_create we add to our multimap
                   if(scallee.compare("pthread_create") == 0){
                      errs() << "pthread_create calls ";
@@ -134,7 +134,7 @@ namespace {
                         }
                      }
                   }
-                  
+*/                  
 //                  Value *VF = dyn_cast<Value>(&F);
 //                  errs() << "# uses = " << VF->getNumUses() << "\n";
 //                  errs() << "type = " << VF->getType() << "\n";
@@ -297,28 +297,12 @@ namespace {
       errs() << "\n";      
    }
 
-   bool isPThreadCall(std::string callee){
-      const int ptfnum = 75;
-      std::string ptfnames[ptfnum] = {"pthread_attr_destroy","pthread_attr_getdetachstate","pthread_attr_getguardsize",
-      "pthread_attr_getinheritsched","pthread_attr_getschedparam","pthread_attr_getschedpolicy","pthread_attr_getscope",
-      "pthread_attr_getstackaddr","pthread_attr_getstacksize","pthread_attr_init","pthread_attr_setdetachstate",
-      "pthread_attr_setguardsize","pthread_attr_setinheritsched","pthread_attr_setschedparam","pthread_attr_setschedpolicy",
-      "pthread_attr_setscope","pthread_attr_setstackaddr","pthread_attr_setstacksize","pthread_cancel",
-      "pthread_cond_broadcast","pthread_cond_destroy","pthread_cond_init","pthread_cond_signal",
-      "pthread_cond_timedwait","pthread_cond_wait","pthread_condattr_destroy","pthread_condattr_getpshared","pthread_condattr_init",
-      "pthread_condattr_setpshared","pthread_create","pthread_detach","pthread_equal","pthread_exit","pthread_getconcurrency",
-      "pthread_getschedparam","pthread_getspecific","pthread_join","pthread_key_create","pthread_key_delete","pthread_mutex_destroy",
-      "pthread_mutex_getprioceiling","pthread_mutex_init","pthread_mutex_lock","pthread_mutex_setprioceiling","pthread_mutex_trylock",
-      "pthread_mutex_unlock","pthread_mutexattr_destroy","pthread_mutexattr_getprioceiling","pthread_mutexattr_getprotocol",
-      "pthread_mutexattr_getpshared","pthread_mutexattr_gettype","pthread_mutexattr_init","pthread_mutexattr_setprioceiling",
-      "pthread_mutexattr_setprotocol","pthread_mutexattr_setpshared","pthread_mutexattr_settype","pthread_once","pthread_rwlock_destroy",
-      "pthread_rwlock_init","pthread_rwlock_rdlock","pthread_rwlock_tryrdlock","pthread_rwlock_trywrlock","pthread_rwlock_unlock",
-      "pthread_rwlock_wrlock","pthread_rwlockattr_destroy","pthread_rwlockattr_getpshared","pthread_rwlockattr_init",
-      "pthread_rwlockattr_setpshared","pthread_self","pthread_setcancelstate","pthread_setcanceltype","pthread_setconcurrency",
-      "pthread_setschedparam","pthread_setspecific","pthread_testcancel"};
+   bool isSyncCall(std::string callee){
+      const int scfnum = 3;
+      std::string scnames[scfnum]={"_ZN7sc_core4waitERKNS_7sc_timeEPNS_13sc_simcontextE", "_ZN7sc_core4waitERKNS_8sc_eventEPNS_13sc_simcontextE", "_ZN7sc_core8sc_event6notifyEv"};
        
-      for(int i = 0; i < ptfnum; i++){
-         if(callee.compare(ptfnames[i]) == 0){
+      for(int i = 0; i < scfnum; i++){
+         if(callee.compare(scnames[i]) == 0){
             return true;
          }
       }
@@ -328,4 +312,4 @@ namespace {
 }
 
 char Mutation::ID = 0;
-static RegisterPass<Mutation> X("mutation", "Mutation for pThreads");
+static RegisterPass<Mutation> X("mutation", "Mutation for SystemC");
